@@ -136,8 +136,7 @@ mutation DeleteRoom($roomId: Int!) {
 query GetAllGuests {
   guests {
     id
-    firstName
-    lastName
+    fullName
     email
     phone
     address 
@@ -159,8 +158,7 @@ query GetAllGuests {
 query GetGuestById($guestId: Int!) {
   guest(id: $guestId) {
     id
-    firstName
-    lastName
+    fullName
     email
     phone
     address
@@ -174,8 +172,7 @@ query GetGuestById($guestId: Int!) {
 ```json
 {
   "guestData": {
-    "firstName": "John",
-    "lastName": "Doe",
+    "fullName": "John Doe",
     "email": "john.doe@example.com",
     "phone": "123-456-7890",
     "address": "123 Main St"
@@ -204,8 +201,8 @@ mutation CreateGuest($guestData: GuestInput!) {
 {
   "guestId": 1,
   "guestData": {
-    "firstName": "Jane",
-    "email": "jane.doe@example.com"
+    "fullName": "Jane Doe",
+    "email": "jane.doe.updated@example.com"
   }
 }
 ```
