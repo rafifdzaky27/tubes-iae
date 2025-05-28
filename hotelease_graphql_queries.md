@@ -185,8 +185,7 @@ query GetGuestById($guestId: Int!) {
 mutation CreateGuest($guestData: GuestInput!) {
   createGuest(guestData: $guestData) {
     id
-    firstName
-    lastName
+    fullName
     email
     phone
     address
