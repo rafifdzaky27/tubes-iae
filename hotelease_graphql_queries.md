@@ -211,8 +211,7 @@ mutation CreateGuest($guestData: GuestInput!) {
 mutation UpdateGuest($guestId: Int!, $guestData: GuestUpdateInput!) {
   updateGuest(id: $guestId, guestData: $guestData) {
     id
-    firstName
-    lastName
+    fullName
     email
     phone
     address
