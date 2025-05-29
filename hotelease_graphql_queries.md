@@ -339,9 +339,6 @@ mutation CreateReservation($reservationData: ReservationInput!) {
       email
     }
   }
-}
-```
-
 ### 4. Update Reservation
 
 *Example Variables (replace `1` with an actual reservation ID):*
@@ -350,7 +347,7 @@ mutation CreateReservation($reservationData: ReservationInput!) {
   "reservationId": 1,
   "reservationData": {
     "checkOutDate": "2024-09-06",
-    "status": "CheckedIn"
+    "status": "checkedIn"
   }
 }
 ```
@@ -377,30 +374,6 @@ mutation UpdateReservation($reservationId: Int!, $reservationData: ReservationUp
 }
 ```
 
-### 5. Delete Reservation
-
-*Example Variables (replace `1` with an actual reservation ID):*
-```json
-{
-  "reservationId": 1
-}
-```
-
-*Mutation:*
-```graphql
-mutation DeleteReservation($reservationId: Int!) {
-  deleteReservation(id: $reservationId) 
-}
-```
-*(Note: `deleteReservation` in your schema returns a boolean.)*
-
----
-
-## Billing Service
-
-**Host URL:** `http://localhost:8004/graphql`
-**(Container URL for reference: `http://billing_service:8000/graphql`)**
-
 ### 1. Get All Bills
 
 ```graphql
@@ -408,9 +381,9 @@ query GetAllBills {
   bills {
     id
     reservationId
-    amount
+    totalAmount
     paymentStatus
-    issueDate
+    generatedAt
   }
 }
 ```
@@ -430,9 +403,27 @@ query GetBillById($billId: Int!) {
   bill(id: $billId) {
     id
     reservationId
-    amount
+    totalAmount
     paymentStatus
-    issueDate
+    generatedAt
+    reservation {
+      id
+      guestId
+      roomId
+      checkInDate
+      checkOutDate
+      status
+      guest {
+        id
+        fullName
+        email
+      }
+      room {
+        id
+        roomNumber
+        pricePerNight
+      }
+    }
   }
 }
 ```
@@ -444,9 +435,8 @@ query GetBillById($billId: Int!) {
 {
   "billData": {
     "reservationId": 1,
-    "amount": 750.0,
-    "paymentStatus": "Pending",
-    "issueDate": "2024-09-05" 
+    "totalAmount": 750.0,
+    "paymentStatus": "Pending"
   }
 }
 ```
@@ -457,9 +447,9 @@ mutation CreateBill($billData: BillInput!) {
   createBill(billData: $billData) {
     id
     reservationId
-    amount
+    totalAmount
     paymentStatus
-    issueDate
+    generatedAt
   }
 }
 ```
@@ -471,7 +461,7 @@ mutation CreateBill($billData: BillInput!) {
 {
   "billId": 1,
   "billData": {
-    "amount": 760.0,
+    "totalAmount": 760.0,
     "paymentStatus": "Paid"
   }
 }
@@ -483,9 +473,9 @@ mutation UpdateBill($billId: Int!, $billData: BillUpdateInput!) {
   updateBill(id: $billId, billData: $billData) {
     id
     reservationId
-    amount
+    totalAmount
     paymentStatus
-    issueDate
+    generatedAt
   }
 }
 ```
