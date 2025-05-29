@@ -339,6 +339,8 @@ mutation CreateReservation($reservationData: ReservationInput!) {
       email
     }
   }
+```
+
 ### 4. Update Reservation
 
 *Example Variables (replace `1` with an actual reservation ID):*
