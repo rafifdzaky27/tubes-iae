@@ -50,21 +50,21 @@ class ReservationServiceClient:
         query GetReservation($id: Int!) {
             reservation(id: $id) {
                 id
-                guest_id
-                room_id
-                check_in_date
-                check_out_date
+                guestId
+                roomId
+                checkInDate
+                checkOutDate
                 status
                 guest {
                     id
-                    full_name
+                    fullName
                     email
                 }
                 room {
                     id
-                    room_number
-                    room_type
-                    price_per_night
+                    roomNumber
+                    roomType
+                    pricePerNight
                 }
             }
         }

@@ -7,14 +7,13 @@ from .db import get_db
 from fastapi import Depends
 from strawberry.fastapi import GraphQLRouter
 from .client import RoomServiceClient, GuestServiceClient
+import logging
 
-# Dependency to get database session for strawberry
-def get_context():
-    db = next(get_db())
-    try:
-        yield {"db": db}
-    finally:
-        db.close()
+# Configure basic logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO) # You can set this to logging.DEBUG for more verbose output
+
+# Context (including db session and service clients) is now provided by main.py's get_context
 
 # Input types for mutations
 @strawberry.input
@@ -58,8 +57,63 @@ class ReservationType:
     check_in_date: date
     check_out_date: date
     status: str
-    guest: Optional[GuestType] = None
-    room: Optional[RoomType] = None
+
+    # Field resolvers for guest and room
+    @strawberry.field
+    async def guest(self, info) -> Optional[GuestType]:
+        if self.guest_id is None:
+            logger.info(f"Guest ID is None for reservation, skipping guest fetch.")
+            return None
+        
+        try:
+            logger.info(f"Attempting to fetch guest {self.guest_id} for reservation {self.id}")
+            guest_client = info.context["guest_service_client"]
+            guest_data = await guest_client.get_guest(self.guest_id)
+            if guest_data:
+                logger.info(f"Successfully fetched guest {self.guest_id}: {guest_data}")
+                return GuestType(
+                    id=guest_data["id"],
+                    full_name=guest_data.get("fullName"),
+                    email=guest_data.get("email"),
+                    phone=guest_data.get("phone"),
+                    address=guest_data.get("address")
+                )
+            logger.warning(f"No data returned for guest {self.guest_id} from GuestService.")
+            return None
+        except Exception as e:
+            logger.error(f"Error fetching guest {self.guest_id} for reservation {self.id}: {e}", exc_info=True)
+            return None
+        finally:
+            # Client lifecycle is managed by FastAPI lifespan, no need to close here
+            logger.info(f"Finished attempt to fetch guest {self.guest_id}")
+
+    @strawberry.field
+    async def room(self, info) -> Optional[RoomType]:
+        if self.room_id is None:
+            logger.info(f"Room ID is None for reservation, skipping room fetch.")
+            return None
+
+        try:
+            logger.info(f"Attempting to fetch room {self.room_id} for reservation {self.id}")
+            room_client = info.context["room_service_client"]
+            room_data = await room_client.get_room(self.room_id)
+            if room_data:
+                logger.info(f"Successfully fetched room {self.room_id}: {room_data}")
+                return RoomType(
+                    id=room_data["id"],
+                    room_number=room_data["roomNumber"],
+                    room_type=room_data["roomType"],
+                    price_per_night=room_data["pricePerNight"],
+                    status=room_data["status"]
+                )
+            logger.warning(f"No data returned for room {self.room_id} from RoomService.")
+            return None
+        except Exception as e:
+            logger.error(f"Error fetching room {self.room_id} for reservation {self.id}: {e}", exc_info=True)
+            return None
+        finally:
+            # Client lifecycle is managed by FastAPI lifespan, no need to close here
+            logger.info(f"Finished attempt to fetch room {self.room_id}")
 
 # Convert database model to GraphQL type
 def reservation_to_graphql(reservation: Reservation) -> ReservationType:
@@ -138,13 +192,14 @@ class Mutation:
     @strawberry.mutation
     async def create_reservation(self, info, reservation_data: ReservationInput) -> ReservationType:
         db = info.context["db"]
-        # Check if room is available
-        room_client = RoomServiceClient()
+        room_service_client = info.context["room_service_client"]
+        guest_service_client = info.context["guest_service_client"]
         try:
-            room_data = await room_client.get_room(reservation_data.room_id)
+            # Check room availability
+            room_data = await room_service_client.get_room(reservation_data.room_id)
             if not room_data or room_data["status"] != "available":
                 raise Exception(f"Room {reservation_data.room_id} is not available")
-            
+
             # Create reservation
             reservation = Reservation(
                 guest_id=reservation_data.guest_id,
@@ -156,62 +211,70 @@ class Mutation:
             db.add(reservation)
             db.commit()
             db.refresh(reservation)
-            
-            # Update room status to reserved
-            await room_client.update_room_status(reservation_data.room_id, "reserved")
-            
-            graphql_reservation = reservation_to_graphql(reservation)
 
-            # Populate room details from already fetched room_data
-            if room_data: # room_data was fetched for validation earlier
-                graphql_reservation.room = RoomType(
-                    id=room_data["id"],
-                    room_number=room_data["roomNumber"],
-                    room_type=room_data["roomType"],
-                    price_per_night=room_data["pricePerNight"],
-                    status=room_data["status"]
+            # Update room status to reserved
+            await room_service_client.update_room_status(reservation_data.room_id, "reserved")
+            
+            # Convert to GraphQL type and fetch related data for response
+            graphql_reservation = reservation_to_graphql(reservation)
+            
+            # Fetch guest details for the response
+            guest_data = await guest_service_client.get_guest(reservation.guest_id)
+            if guest_data:
+                graphql_reservation.guest = GuestType(
+                    id=guest_data["id"],
+                    full_name=guest_data.get("fullName"),
+                    email=guest_data.get("email"),
+                    phone=guest_data.get("phone"),
+                    address=guest_data.get("address")
                 )
             
-            # Fetch and populate guest details
-            guest_client = GuestServiceClient()
-            try:
-                guest_data = await guest_client.get_guest(reservation.guest_id)
-                if guest_data:
-                    graphql_reservation.guest = GuestType(
-                        id=guest_data["id"],
-                        full_name=guest_data.get("fullName"), # Assumes guest_service returns camelCase fullName
-                        email=guest_data.get("email"),
-                        phone=guest_data.get("phone"),
-                        address=guest_data.get("address")
-                    )
-            finally:
-                await guest_client.close()
-                
-            return graphql_reservation
-        finally:
-            await room_client.close()
+            # Room data for the response is already fetched and known
+            # Re-fetch to get the absolute latest, or use the one from check if acceptable
+            # For consistency, let's re-fetch, though room_data from above could be used if status is manually set to 'reserved'
+            updated_room_data = await room_service_client.get_room(reservation.room_id) 
+            if updated_room_data:
+                graphql_reservation.room = RoomType(
+                    id=updated_room_data["id"],
+                    room_number=updated_room_data["roomNumber"],
+                    room_type=updated_room_data["roomType"],
+                    price_per_night=updated_room_data["pricePerNight"],
+                    status=updated_room_data["status"] # This should now be 'reserved'
+                )
 
+            return graphql_reservation
+        except Exception as e:
+            logger.error(f"Error creating reservation: {e}", exc_info=True)
+            if db.in_transaction():
+                db.rollback()
+            raise e # Re-raise the exception to be caught by Strawberry's error handling
+        finally:
+            # Clients are managed by lifespan
+            pass
+                
     @strawberry.mutation
     async def update_reservation(self, info, id: int, reservation_data: ReservationUpdateInput) -> Optional[ReservationType]:
         db = info.context["db"]
+        room_service_client = info.context["room_service_client"]
+        guest_service_client = info.context["guest_service_client"]
+        
         reservation = db.query(Reservation).filter(Reservation.id == id).first()
         if not reservation:
-            return None
-        
-        room_client = None
+            raise Exception(f"Reservation with id {id} not found")
+
         try:
-            # If room is changing, check availability of new room and update statuses
+            # Handle room status changes if room_id is updated
             if reservation_data.room_id is not None and reservation_data.room_id != reservation.room_id:
-                room_client = RoomServiceClient()
-                room_data = await room_client.get_room(reservation_data.room_id)
-                if not room_data or room_data["status"] != "available":
+                # Check new room availability
+                new_room_data = await room_service_client.get_room(reservation_data.room_id)
+                if not new_room_data or new_room_data["status"] != "available":
                     raise Exception(f"Room {reservation_data.room_id} is not available")
                 
                 # Update old room status to available
-                await room_client.update_room_status(reservation.room_id, "available")
+                await room_service_client.update_room_status(reservation.room_id, "available")
                 
                 # Update new room status to reserved
-                await room_client.update_room_status(reservation_data.room_id, "reserved")
+                await room_service_client.update_room_status(reservation_data.room_id, "reserved")
                 
                 reservation.room_id = reservation_data.room_id
             
@@ -226,73 +289,60 @@ class Mutation:
                 reservation.status = reservation_data.status
                 
                 # If status is changed to checked-out, update room status to available
-                if reservation_data.status == "checked-out" and room_client is None:
-                    room_client = RoomServiceClient()
-                    await room_client.update_room_status(reservation.room_id, "available")
+                if reservation_data.status == "checked-out":
+                    await room_service_client.update_room_status(reservation.room_id, "available")
                 
             db.commit()
             db.refresh(reservation)
             
             graphql_reservation = reservation_to_graphql(reservation)
 
-            # Fetch full details for the response
-            response_room_client = None
-            response_guest_client = None
-            try:
-                response_room_client = RoomServiceClient()
-                current_room_data = await response_room_client.get_room(reservation.room_id)
-                if current_room_data:
-                    graphql_reservation.room = RoomType(
-                        id=current_room_data["id"],
-                        room_number=current_room_data["roomNumber"],
-                        room_type=current_room_data["roomType"],
-                        price_per_night=current_room_data["pricePerNight"],
-                        status=current_room_data["status"]
-                    )
+            # Fetch full details for the response using context clients
+            current_room_data = await room_service_client.get_room(reservation.room_id)
+            if current_room_data:
+                graphql_reservation.room = RoomType(
+                    id=current_room_data["id"],
+                    room_number=current_room_data["roomNumber"],
+                    room_type=current_room_data["roomType"],
+                    price_per_night=current_room_data["pricePerNight"],
+                    status=current_room_data["status"]
+                )
 
-                response_guest_client = GuestServiceClient()
-                current_guest_data = await response_guest_client.get_guest(reservation.guest_id)
-                if current_guest_data:
-                    graphql_reservation.guest = GuestType(
-                        id=current_guest_data["id"],
-                        full_name=current_guest_data.get("fullName"),
-                        email=current_guest_data.get("email"),
-                        phone=current_guest_data.get("phone"),
-                        address=current_guest_data.get("address")
-                    )
-            finally:
-                if response_room_client:
-                    await response_room_client.close()
-                if response_guest_client:
-                    await response_guest_client.close()
+            current_guest_data = await guest_service_client.get_guest(reservation.guest_id)
+            if current_guest_data:
+                graphql_reservation.guest = GuestType(
+                    id=current_guest_data["id"],
+                    full_name=current_guest_data.get("fullName"),
+                    email=current_guest_data.get("email" ),
+                    phone=current_guest_data.get("phone"),
+                    address=current_guest_data.get("address")
+                )
             
             return graphql_reservation
         finally:
-            if room_client:
-                await room_client.close()
-
+            # Clients are managed by lifespan
+            pass
+            
     @strawberry.mutation
     async def delete_reservation(self, info, id: int) -> bool:
         db = info.context["db"]
+        room_service_client = info.context["room_service_client"]
         reservation = db.query(Reservation).filter(Reservation.id == id).first()
         if not reservation:
             return False
         
         # Update room status to available
-        room_client = RoomServiceClient()
         try:
-            await room_client.update_room_status(reservation.room_id, "available")
+            await room_service_client.update_room_status(reservation.room_id, "available")
             db.delete(reservation)
             db.commit()
             return True
         finally:
-            await room_client.close()
+            # Client is managed by lifespan
+            pass
 
 # Create GraphQL schema
 schema = strawberry.Schema(query=Query, mutation=Mutation)
 
-# Create GraphQL router for FastAPI
-graphql_router = GraphQLRouter(
-    schema,
-    context_getter=get_context
-)
+# GraphQLRouter is now created in main.py with a new context_getter.
+# This file (schema.py) only needs to export the 'schema' object.

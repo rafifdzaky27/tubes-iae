@@ -78,7 +78,7 @@ class RoomServiceClient:
     async def update_room_status(self, room_id: int, status: str):
         mutation = """
         mutation UpdateRoom($id: Int!, $roomData: RoomUpdateInput!) {
-            update_room(id: $id, room_data: $roomData) {
+            updateRoom(id: $id, roomData: $roomData) {
                 id
                 roomNumber
                 status
@@ -90,7 +90,7 @@ class RoomServiceClient:
             "roomData": {"status": status}
         }
         result = await self.client.execute_query(mutation, variables)
-        return result["update_room"]
+        return result["updateRoom"]
     
     async def close(self):
         await self.client.close()

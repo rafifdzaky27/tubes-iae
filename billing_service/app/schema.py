@@ -95,24 +95,24 @@ class Query:
                 if "guest" in reservation_data and reservation_data["guest"]:
                     guest = GuestType(
                         id=reservation_data["guest"]["id"],
-                        full_name=reservation_data["guest"]["full_name"],
+                        full_name=reservation_data["guest"]["fullName"],
                         email=reservation_data["guest"]["email"]
                     )
                 
                 if "room" in reservation_data and reservation_data["room"]:
                     room = RoomType(
                         id=reservation_data["room"]["id"],
-                        room_number=reservation_data["room"]["room_number"],
-                        room_type=reservation_data["room"]["room_type"],
-                        price_per_night=reservation_data["room"]["price_per_night"]
+                        room_number=reservation_data["room"]["roomNumber"],
+                        room_type=reservation_data["room"]["roomType"],
+                        price_per_night=reservation_data["room"]["pricePerNight"]
                     )
                 
                 result.reservation = ReservationType(
                     id=reservation_data["id"],
-                    guest_id=reservation_data["guest_id"],
-                    room_id=reservation_data["room_id"],
-                    check_in_date=datetime.fromisoformat(reservation_data["check_in_date"]).date(),
-                    check_out_date=datetime.fromisoformat(reservation_data["check_out_date"]).date(),
+                    guest_id=reservation_data["guestId"],
+                    room_id=reservation_data["roomId"],
+                    check_in_date=datetime.fromisoformat(reservation_data["checkInDate"]).date(),
+                    check_out_date=datetime.fromisoformat(reservation_data["checkOutDate"]).date(),
                     status=reservation_data["status"],
                     guest=guest,
                     room=room
@@ -162,10 +162,10 @@ class Mutation:
                     raise Exception(f"Reservation {reservation_id} not found")
                 
                 # Calculate total amount based on room price and length of stay
-                check_in_date = datetime.fromisoformat(reservation_data["check_in_date"]).date()
-                check_out_date = datetime.fromisoformat(reservation_data["check_out_date"]).date()
+                check_in_date = datetime.fromisoformat(reservation_data["checkInDate"]).date()
+                check_out_date = datetime.fromisoformat(reservation_data["checkOutDate"]).date()
                 days = calculate_days(check_in_date, check_out_date)
-                price_per_night = reservation_data["room"]["price_per_night"]
+                price_per_night = reservation_data["room"]["pricePerNight"]
                 total_amount = days * price_per_night
                 
                 bill = Bill(
