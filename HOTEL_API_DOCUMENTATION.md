@@ -1,35 +1,40 @@
-# Dokumentasi API Sistem Hotel (Kelompok Anda)
+# Dokumentasi API Sistem HotelEase
 
-Dokumen ini menyediakan informasi mengenai cara berinteraksi dengan API GraphQL dari layanan-layanan sistem hotel kami.
+Dokumen ini menyediakan informasi mengenai cara berinteraksi dengan API GraphQL dari layanan-layanan sistem HotelEase.
 
 ## Informasi Umum
 
 Semua layanan mengekspos endpoint GraphQL pada path `/graphql`.
 
-**URL Basis untuk Akses Lokal (dari mesin yang sama):**
-- Guest Service: `http://localhost:<GUEST_SERVICE_HOST_PORT>/graphql`
-- Room Service: `http://localhost:<ROOM_SERVICE_HOST_PORT>/graphql`
-- Reservation Service: `http://localhost:<RESERVATION_SERVICE_HOST_PORT>/graphql`
-- Billing Service: `http://localhost:<BILLING_SERVICE_HOST_PORT>/graphql`
+**URL Basis untuk Akses API:**
 
-**URL Basis untuk Akses dari Kelompok Lain (dalam jaringan yang sama):**
-Ganti `<YOUR_IP_ADDRESS>` dengan IP address mesin Anda saat ini (cek dengan `ipconfig` di Windows) dan `<SERVICE_HOST_PORT>` dengan port yang sesuai yang di-map di `docker-compose.yml`.
+Untuk mengakses API dari jaringan lokal (misalnya, antar kelompok dalam satu jaringan kampus/Wi-Fi yang sama), gunakan IP address mesin yang menjalankan layanan dan port yang sesuai.
 
-- Guest Service: `http://<YOUR_IP_ADDRESS>:<GUEST_SERVICE_HOST_PORT>/graphql`
-- Room Service: `http://<YOUR_IP_ADDRESS>:<ROOM_SERVICE_HOST_PORT>/graphql`
-- Reservation Service: `http://<YOUR_IP_ADDRESS>:<RESERVATION_SERVICE_HOST_PORT>/graphql`
-- Billing Service: `http://<YOUR_IP_ADDRESS>:<BILLING_SERVICE_HOST_PORT>/graphql`
+- **Guest Service:** `http://<GUEST_SERVICE_HOST_IP>:<GUEST_SERVICE_HOST_PORT>/graphql`
+- **Room Service:** `http://<ROOM_SERVICE_HOST_IP>:<ROOM_SERVICE_HOST_PORT>/graphql`
+- **Reservation Service:** `http://<RESERVATION_SERVICE_HOST_IP>:<RESERVATION_SERVICE_HOST_PORT>/graphql`
+- **Billing Service:** `http://<BILLING_SERVICE_HOST_IP>:<BILLING_SERVICE_HOST_PORT>/graphql`
 
-**Catatan Penting:**
-- IP Address lokal (`<YOUR_IP_ADDRESS>`) bisa berubah jika jaringan Anda menggunakan DHCP. Pastikan untuk selalu menggunakan IP yang terbaru.
-- Pastikan port yang digunakan tidak diblokir oleh firewall di mesin host.
+**Port Host Standar (dapat dikonfigurasi di `docker-compose.yml`):**
+- Guest Service Port: `8003`
+- Room Service Port: `8001`
+- Reservation Service Port: `8002`
+- Billing Service Port: `8004`
+
+**Contoh URL Lengkap (jika Guest Service berjalan di IP `192.168.1.10` dengan port `8003`):**
+`http://192.168.1.10:8003/graphql`
+
+**Catatan Penting untuk Pengguna API:**
+- Pastikan untuk mendapatkan IP address (`<SERVICE_HOST_IP>`) yang benar dari tim yang menjalankan layanan HotelEase.
+- IP address lokal dapat berubah jika jaringan menggunakan DHCP. Selalu konfirmasi IP terbaru jika terjadi masalah koneksi.
+- Pastikan tidak ada firewall yang memblokir koneksi pada port yang dituju.
 - Semua field dan nama operasi GraphQL menggunakan `camelCase`.
 
 ---
 
 ## 1. Guest Service
 
-**Host Port (Contoh):** `8000` (sesuaikan dengan `docker-compose.yml` Anda)
+**Endpoint:** `http://<GUEST_SERVICE_HOST_IP>:8003/graphql`
 
 ### Queries
 
@@ -53,6 +58,21 @@ Ganti `<YOUR_IP_ADDRESS>` dengan IP address mesin Anda saat ini (cek dengan `ipc
       id
       fullName
       email
+      phone
+      address
+    }
+  }
+  ```
+
+- **`guestByEmail(email: String!) -> GuestType`**: Mengambil detail tamu berdasarkan alamat email.
+  ```graphql
+  query GetGuestByEmail($email: String!) {
+    guestByEmail(email: $email) {
+      id
+      fullName
+      email
+      phone
+      address
     }
   }
   ```
@@ -66,16 +86,40 @@ Ganti `<YOUR_IP_ADDRESS>` dengan IP address mesin Anda saat ini (cek dengan `ipc
       id
       fullName
       email
+      phone
+      address
     }
   }
-  # GuestInput: { fullName: String!, email: String!, phone: String, address: String }
+  # Input: GuestInput { fullName: String!, email: String!, phone: String!, address: String! }
+  ```
+
+- **`updateGuest(id: Int!, guestData: GuestUpdateInput!) -> GuestType`**: Memperbarui informasi tamu berdasarkan ID.
+  ```graphql
+  mutation UpdateExistingGuest($guestId: Int!, $guestData: GuestUpdateInput!) {
+    updateGuest(id: $guestId, guestData: $guestData) {
+      id
+      fullName
+      email
+      phone
+      address
+    }
+  }
+  # Input: GuestUpdateInput { fullName: String, email: String, phone: String, address: String }
+  # (Semua field opsional)
+  ```
+
+- **`deleteGuest(id: Int!) -> Boolean`**: Menghapus tamu berdasarkan ID. Mengembalikan `true` jika berhasil, `false` jika tidak.
+  ```graphql
+  mutation DeleteExistingGuest($guestId: Int!) {
+    deleteGuest(id: $guestId)
+  }
   ```
 
 ---
 
 ## 2. Room Service
 
-**Host Port (Contoh):** `8003` (sesuaikan dengan `docker-compose.yml` Anda)
+**Endpoint:** `http://<ROOM_SERVICE_HOST_IP>:8001/graphql`
 
 ### Queries
 
@@ -99,12 +143,13 @@ Ganti `<YOUR_IP_ADDRESS>` dengan IP address mesin Anda saat ini (cek dengan `ipc
       id
       roomNumber
       roomType
+      pricePerNight
       status
     }
   }
   ```
 
-- **`availableRooms -> [RoomType]`**: Mengambil daftar kamar yang tersedia.
+- **`availableRooms -> [RoomType]`**: Mengambil daftar kamar yang tersedia (status 'available').
   ```graphql
   query GetAvailableRooms {
     availableRooms {
@@ -112,6 +157,7 @@ Ganti `<YOUR_IP_ADDRESS>` dengan IP address mesin Anda saat ini (cek dengan `ipc
       roomNumber
       roomType
       pricePerNight
+      status
     }
   }
   ```
@@ -124,19 +170,33 @@ Ganti `<YOUR_IP_ADDRESS>` dengan IP address mesin Anda saat ini (cek dengan `ipc
     createRoom(roomData: $roomData) {
       id
       roomNumber
+      roomType
+      pricePerNight
       status
     }
   }
-  # RoomInput: { roomNumber: String!, roomType: String!, pricePerNight: Float!, status: String! }
+  # Input: RoomInput { roomNumber: String!, roomType: String!, pricePerNight: Float!, status: String! }
   ```
 
-- **`updateRoomStatus(id: Int!, status: String!) -> RoomType`**: (Jika ada, contoh) Mengubah status kamar.
+- **`updateRoom(id: Int!, roomData: RoomUpdateInput!) -> RoomType`**: Memperbarui informasi kamar berdasarkan ID.
   ```graphql
-  mutation UpdateRoomStatus($roomId: Int!, $newStatus: String!) {
-    updateRoomStatus(id: $roomId, status: $newStatus) {
+  mutation UpdateExistingRoom($roomId: Int!, $roomData: RoomUpdateInput!) {
+    updateRoom(id: $roomId, roomData: $roomData) {
       id
+      roomNumber
+      roomType
+      pricePerNight
       status
     }
+  }
+  # Input: RoomUpdateInput { roomNumber: String, roomType: String, pricePerNight: Float, status: String }
+  # (Semua field opsional)
+  ```
+
+- **`deleteRoom(id: Int!) -> Boolean`**: Menghapus kamar berdasarkan ID. Mengembalikan `true` jika berhasil, `false` jika tidak.
+  ```graphql
+  mutation DeleteExistingRoom($roomId: Int!) {
+    deleteRoom(id: $roomId)
   }
   ```
 
@@ -144,28 +204,29 @@ Ganti `<YOUR_IP_ADDRESS>` dengan IP address mesin Anda saat ini (cek dengan `ipc
 
 ## 3. Reservation Service
 
-**Host Port (Contoh):** `8001` (sesuaikan dengan `docker-compose.yml` Anda)
+**Endpoint:** `http://<RESERVATION_SERVICE_HOST_IP>:8002/graphql`
 
 ### Queries
 
-- **`reservation(id: Int!) -> ReservationType`**: Mengambil detail reservasi berdasarkan ID.
+- **`reservation(id: Int!) -> ReservationType`**: Mengambil detail reservasi berdasarkan ID. Termasuk detail tamu dan kamar terkait.
   ```graphql
   query GetReservation($reservationId: Int!) {
     reservation(id: $reservationId) {
       id
       guestId
       roomId
-      startTime
-      endTime
-      totalPrice
+      checkInDate
+      checkOutDate
       status
       guest { # Data dari GuestService
         id
         fullName
+        email
       }
       room { # Data dari RoomService
         id
         roomNumber
+        roomType
       }
     }
   }
@@ -178,6 +239,34 @@ Ganti `<YOUR_IP_ADDRESS>` dengan IP address mesin Anda saat ini (cek dengan `ipc
       id
       guestId
       roomId
+      checkInDate
+      checkOutDate
+      status
+    }
+  }
+  ```
+
+- **`reservationsByGuest(guestId: Int!) -> [ReservationType]`**: Mengambil daftar reservasi untuk tamu tertentu.
+  ```graphql
+  query GetReservationsByGuest($guestId: Int!) {
+    reservationsByGuest(guestId: $guestId) {
+      id
+      roomId
+      checkInDate
+      checkOutDate
+      status
+    }
+  }
+  ```
+
+- **`reservationsByRoom(roomId: Int!) -> [ReservationType]`**: Mengambil daftar reservasi untuk kamar tertentu.
+  ```graphql
+  query GetReservationsByRoom($roomId: Int!) {
+    reservationsByRoom(roomId: $roomId) {
+      id
+      guestId
+      checkInDate
+      checkOutDate
       status
     }
   }
@@ -185,30 +274,43 @@ Ganti `<YOUR_IP_ADDRESS>` dengan IP address mesin Anda saat ini (cek dengan `ipc
 
 ### Mutations
 
-- **`createReservation(reservationData: ReservationInput!) -> ReservationType`**: Membuat reservasi baru.
+- **`createReservation(reservationData: ReservationInput!) -> ReservationType`**: Membuat reservasi baru. Akan mengupdate status kamar menjadi 'reserved'.
   ```graphql
   mutation CreateNewReservation($reservationData: ReservationInput!) {
     createReservation(reservationData: $reservationData) {
       id
       guestId
       roomId
-      startTime
-      endTime
-      totalPrice
+      checkInDate
+      checkOutDate
+      status
+      guest { id fullName }
+      room { id roomNumber status }
+    }
+  }
+  # Input: ReservationInput { guestId: Int!, roomId: Int!, checkInDate: Date!, checkOutDate: Date!, status: String (opsional, default: "confirmed") }
+  ```
+
+- **`updateReservation(id: Int!, reservationData: ReservationUpdateInput!) -> ReservationType`**: Memperbarui informasi reservasi. Dapat mengubah status kamar jika `roomId` atau `status` reservasi diubah (misal, menjadi 'checked-out' akan membuat kamar 'available').
+  ```graphql
+  mutation UpdateExistingReservation($reservationId: Int!, $reservationData: ReservationUpdateInput!) {
+    updateReservation(id: $reservationId, reservationData: $reservationData) {
+      id
+      guestId
+      roomId
+      checkInDate
+      checkOutDate
       status
     }
   }
-  # ReservationInput: { guestId: Int!, roomId: Int!, startTime: DateTime!, endTime: DateTime! }
+  # Input: ReservationUpdateInput { guestId: Int, roomId: Int, checkInDate: Date, checkOutDate: Date, status: String }
+  # (Semua field opsional)
   ```
 
-- **`updateReservationStatus(id: Int!, status: String!) -> ReservationType`**: Mengubah status reservasi. **Ini bisa menjadi trigger untuk Hotelmate.**
+- **`deleteReservation(id: Int!) -> Boolean`**: Menghapus reservasi berdasarkan ID. Akan mengupdate status kamar terkait menjadi 'available'. Mengembalikan `true` jika berhasil, `false` jika tidak.
   ```graphql
-  mutation UpdateReservationStatus($reservationId: Int!, $newStatus: String!) {
-    updateReservationStatus(id: $reservationId, status: $newStatus) {
-      id
-      status
-      # Jika status = "completed", service ini akan memanggil API Hotelmate
-    }
+  mutation DeleteExistingReservation($reservationId: Int!) {
+    deleteReservation(id: $reservationId)
   }
   ```
 
@@ -216,21 +318,26 @@ Ganti `<YOUR_IP_ADDRESS>` dengan IP address mesin Anda saat ini (cek dengan `ipc
 
 ## 4. Billing Service
 
-**Host Port (Contoh):** `8002` (sesuaikan dengan `docker-compose.yml` Anda)
+**Endpoint:** `http://<BILLING_SERVICE_HOST_IP>:8004/graphql`
 
 ### Queries
 
-- **`bill(id: Int!) -> BillType`**: Mengambil detail tagihan berdasarkan ID.
+- **`bill(id: Int!) -> BillType`**: Mengambil detail tagihan berdasarkan ID. Termasuk detail reservasi terkait.
   ```graphql
   query GetBill($billId: Int!) {
     bill(id: $billId) {
       id
       reservationId
-      guestId
-      amount
+      totalAmount
       paymentStatus
-      paymentDate
-      # reservation { id startTime endTime } # Detail reservasi dari ReservationService
+      generatedAt
+      reservation {
+        id
+        checkInDate
+        checkOutDate
+        guest { id fullName }
+        room { id roomNumber pricePerNight }
+      }
     }
   }
   ```
@@ -241,37 +348,81 @@ Ganti `<YOUR_IP_ADDRESS>` dengan IP address mesin Anda saat ini (cek dengan `ipc
     bills {
       id
       reservationId
+      totalAmount
       paymentStatus
+      generatedAt
+    }
+  }
+  ```
+
+- **`billsByReservation(reservationId: Int!) -> [BillType]`**: Mengambil daftar tagihan untuk reservasi tertentu.
+  ```graphql
+  query GetBillsByReservation($reservationId: Int!) {
+    billsByReservation(reservationId: $reservationId) {
+      id
+      totalAmount
+      paymentStatus
+      generatedAt
+    }
+  }
+  ```
+
+- **`billsByStatus(status: String!) -> [BillType]`**: Mengambil daftar tagihan berdasarkan status pembayaran (misal, 'pending', 'paid').
+  ```graphql
+  query GetBillsByStatus($status: String!) {
+    billsByStatus(status: $status) {
+      id
+      reservationId
+      totalAmount
+      generatedAt
     }
   }
   ```
 
 ### Mutations
 
-- **`createBill(billData: BillInput!) -> BillType`**: Membuat tagihan baru.
+- **`createBill(billData: BillInput, reservationId: Int) -> BillType`**: Membuat tagihan baru. Dapat dibuat dengan menyediakan `BillInput` lengkap, atau hanya `reservationId` (maka `totalAmount` akan dihitung otomatis berdasarkan detail reservasi).
   ```graphql
-  mutation CreateNewBill($billData: BillInput!) {
+  # Opsi 1: Dengan BillInput lengkap
+  mutation CreateNewBillWithData($billData: BillInput!) {
     createBill(billData: $billData) {
       id
       reservationId
-      amount
+      totalAmount
       paymentStatus
+      generatedAt
     }
   }
-  # BillInput: { reservationId: Int!, amount: Float!, paymentStatus: String! }
-  ```
+  # Input: BillInput { reservationId: Int!, totalAmount: Float!, paymentStatus: String (opsional, default: "pending") }
 
-- **`updateBillStatus(id: Int!, paymentStatus: String!) -> BillType`**: Mengubah status pembayaran tagihan. **Ini juga bisa menjadi trigger untuk Hotelmate jika pembayaran lunas menandakan kunjungan selesai.**
-  ```graphql
-  mutation UpdateBill($billId: Int!, $newPaymentStatus: String!) {
-    updateBillStatus(id: $billId, paymentStatus: $newPaymentStatus) {
+  # Opsi 2: Hanya dengan reservationId (otomatis hitung totalAmount)
+  mutation CreateNewBillForReservation($resId: Int!) {
+    createBill(reservationId: $resId) {
       id
-      paymentStatus
+      reservationId
+      totalAmount # Akan dihitung otomatis
+      paymentStatus # Default 'pending'
+      generatedAt
     }
   }
   ```
 
-- **`deleteBill(id: Int!) -> Boolean`**: Menghapus tagihan.
+- **`updateBill(id: Int!, billData: BillUpdateInput!) -> BillType`**: Memperbarui informasi tagihan.
+  ```graphql
+  mutation UpdateExistingBill($billId: Int!, $billData: BillUpdateInput!) {
+    updateBill(id: $billId, billData: $billData) {
+      id
+      reservationId
+      totalAmount
+      paymentStatus
+      generatedAt
+    }
+  }
+  # Input: BillUpdateInput { totalAmount: Float, paymentStatus: String }
+  # (Semua field opsional)
+  ```
+
+- **`deleteBill(id: Int!) -> Boolean`**: Menghapus tagihan berdasarkan ID. Mengembalikan `true` jika berhasil, `false` jika tidak.
   ```graphql
   mutation DeleteExistingBill($billId: Int!) {
     deleteBill(id: $billId)
@@ -280,28 +431,4 @@ Ganti `<YOUR_IP_ADDRESS>` dengan IP address mesin Anda saat ini (cek dengan `ipc
 
 ---
 
-## Informasi Tambahan untuk Integrasi dengan Hotelmate
-
-Sistem kami akan berinteraksi dengan Hotelmate terutama pada saat:
-1.  **Reservasi Selesai:** `ReservationService` (setelah status reservasi menjadi 'completed' atau 'checked-out') atau `BillingService` (setelah tagihan lunas) akan memanggil mutation yang disediakan oleh `Review Service` dan `Loyalty Service` Hotelmate untuk:
-    *   Memberitahukan bahwa kunjungan telah selesai dan tamu dapat memberikan ulasan.
-    *   Mencatat kunjungan untuk pemberian poin loyalitas.
-
-    **Data yang akan dikirim (Contoh):**
-    *   `guestId` (dari sistem kami)
-    *   `reservationId` atau `stayId` (dari sistem kami)
-    *   `hotelId` (jika berlaku)
-    *   Tanggal selesai kunjungan
-    *   Total biaya (jika relevan untuk poin loyalitas)
-
-Kami membutuhkan definisi GraphQL mutation yang spesifik dari Hotelmate untuk tujuan ini.
-
-2.  **Menampilkan Data Hotelmate (Opsional):**
-    Layanan kami (misalnya `RoomService` atau `GuestService`) mungkin akan memanggil query yang disediakan Hotelmate untuk mengambil:
-    *   Rata-rata rating atau ulasan untuk kamar/hotel.
-    *   Informasi poin loyalitas atau status tier tamu.
-
-Kami membutuhkan definisi GraphQL query yang spesifik dari Hotelmate untuk tujuan ini.
-
-
-Silakan hubungi kami jika ada pertanyaan lebih lanjut atau untuk koordinasi detail teknis API.
+Silakan hubungi tim HotelEase jika ada pertanyaan lebih lanjut atau untuk koordinasi detail teknis API.
