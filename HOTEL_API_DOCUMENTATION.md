@@ -90,7 +90,14 @@ Untuk mengakses API dari jaringan lokal (misalnya, antar kelompok dalam satu jar
       address
     }
   }
-  # Input: GuestInput { fullName: String!, email: String!, phone: String!, address: String! }
+  ```graphql
+  input GuestInput {
+    fullName: String!
+    email: String!
+    phone: String!
+    address: String!
+  }
+  ```
   ```
 
 - **`updateGuest(id: Int!, guestData: GuestUpdateInput!) -> GuestType`**: Memperbarui informasi tamu berdasarkan ID.
@@ -104,8 +111,14 @@ Untuk mengakses API dari jaringan lokal (misalnya, antar kelompok dalam satu jar
       address
     }
   }
-  # Input: GuestUpdateInput { fullName: String, email: String, phone: String, address: String }
-  # (Semua field opsional)
+  ```graphql
+  input GuestUpdateInput {
+    fullName: String
+    email: String
+    phone: String
+    address: String
+  }
+  ```
   ```
 
 - **`deleteGuest(id: Int!) -> Boolean`**: Menghapus tamu berdasarkan ID. Mengembalikan `true` jika berhasil, `false` jika tidak.
@@ -175,7 +188,14 @@ Untuk mengakses API dari jaringan lokal (misalnya, antar kelompok dalam satu jar
       status
     }
   }
-  # Input: RoomInput { roomNumber: String!, roomType: String!, pricePerNight: Float!, status: String! }
+  ```graphql
+  input RoomInput {
+    roomNumber: String!
+    roomType: String!
+    pricePerNight: Float!
+    status: String!
+  }
+  ```
   ```
 
 - **`updateRoom(id: Int!, roomData: RoomUpdateInput!) -> RoomType`**: Memperbarui informasi kamar berdasarkan ID.
@@ -189,8 +209,14 @@ Untuk mengakses API dari jaringan lokal (misalnya, antar kelompok dalam satu jar
       status
     }
   }
-  # Input: RoomUpdateInput { roomNumber: String, roomType: String, pricePerNight: Float, status: String }
-  # (Semua field opsional)
+  ```graphql
+  input RoomUpdateInput {
+    roomNumber: String
+    roomType: String
+    pricePerNight: Float
+    status: String
+  }
+  ```
   ```
 
 - **`deleteRoom(id: Int!) -> Boolean`**: Menghapus kamar berdasarkan ID. Mengembalikan `true` jika berhasil, `false` jika tidak.
@@ -288,7 +314,15 @@ Untuk mengakses API dari jaringan lokal (misalnya, antar kelompok dalam satu jar
       room { id roomNumber status }
     }
   }
-  # Input: ReservationInput { guestId: Int!, roomId: Int!, checkInDate: Date!, checkOutDate: Date!, status: String (opsional, default: "confirmed") }
+  ```graphql
+  input ReservationInput {
+    guestId: Int!
+    roomId: Int!
+    checkInDate: Date! # Scalar tipe Date (biasanya String format ISO 8601)
+    checkOutDate: Date! # Scalar tipe Date (biasanya String format ISO 8601)
+    status: String # Default value 'confirmed' diimplementasikan di sisi server
+  }
+  ```
   ```
 
 - **`updateReservation(id: Int!, reservationData: ReservationUpdateInput!) -> ReservationType`**: Memperbarui informasi reservasi. Dapat mengubah status kamar jika `roomId` atau `status` reservasi diubah (misal, menjadi 'checked-out' akan membuat kamar 'available').
@@ -303,8 +337,15 @@ Untuk mengakses API dari jaringan lokal (misalnya, antar kelompok dalam satu jar
       status
     }
   }
-  # Input: ReservationUpdateInput { guestId: Int, roomId: Int, checkInDate: Date, checkOutDate: Date, status: String }
-  # (Semua field opsional)
+  ```graphql
+  input ReservationUpdateInput {
+    guestId: Int
+    roomId: Int
+    checkInDate: Date # Scalar tipe Date
+    checkOutDate: Date # Scalar tipe Date
+    status: String
+  }
+  ```
   ```
 
 - **`deleteReservation(id: Int!) -> Boolean`**: Menghapus reservasi berdasarkan ID. Akan mengupdate status kamar terkait menjadi 'available'. Mengembalikan `true` jika berhasil, `false` jika tidak.
@@ -393,7 +434,13 @@ Untuk mengakses API dari jaringan lokal (misalnya, antar kelompok dalam satu jar
       generatedAt
     }
   }
-  # Input: BillInput { reservationId: Int!, totalAmount: Float!, paymentStatus: String (opsional, default: "pending") }
+  ```graphql
+  input BillInput {
+    reservationId: Int!
+    totalAmount: Float!
+    paymentStatus: String # Default value 'pending' diimplementasikan di sisi server
+  }
+  ```
 
   # Opsi 2: Hanya dengan reservationId (otomatis hitung totalAmount)
   mutation CreateNewBillForReservation($resId: Int!) {
@@ -418,8 +465,12 @@ Untuk mengakses API dari jaringan lokal (misalnya, antar kelompok dalam satu jar
       generatedAt
     }
   }
-  # Input: BillUpdateInput { totalAmount: Float, paymentStatus: String }
-  # (Semua field opsional)
+  ```graphql
+  input BillUpdateInput {
+    totalAmount: Float
+    paymentStatus: String
+  }
+  ```
   ```
 
 - **`deleteBill(id: Int!) -> Boolean`**: Menghapus tagihan berdasarkan ID. Mengembalikan `true` jika berhasil, `false` jika tidak.
